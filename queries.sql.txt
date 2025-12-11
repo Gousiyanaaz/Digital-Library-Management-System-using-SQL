@@ -1,0 +1,131 @@
+SELECT * FROM Readers;
+SELECT * FROM Books;
+SELECT * FROM BorrowRecords;
+
+# Q1: Find the total number of books available in the library.
+SELECT COUNT(*) AS total_books FROM Books;
+
+# Q2: Display the title and author of all the books.
+SELECT book_title, author FROM Books;
+
+# Q3: Show the list of books that are currently available (quantity > 0).
+SELECT book_title, quantity FROM Books WHERE quantity > 0;
+
+# Q4: Show the books that are currently borrowed (not yet returned).
+SELECT reader_id, book_id FROM BorrowRecords WHERE return_date IS NULL;
+
+# Q5: Display the names of users who have borrowed at least one book.
+SELECT DISTINCT r.reader_name 
+FROM Readers r
+JOIN BorrowRecords b ON r.reader_id = b.reader_id;
+
+# Q6: Show how many times each book has been issued (borrowed).
+SELECT b.book_title, COUNT(br.borrow_id) AS issued_count
+FROM Books b
+LEFT JOIN BorrowRecords br ON b.book_id = br.book_id
+GROUP BY b.book_title
+ORDER BY issued_count DESC;
+
+# Q7: Find how many times each book has been borrowed (including returned and currently borrowed).
+SELECT b.book_id, b.book_title, COUNT(br.borrow_id) AS times_borrowed
+FROM Books b
+LEFT JOIN BorrowRecords br ON b.book_id = br.book_id
+GROUP BY b.book_id, b.book_title
+ORDER BY times_borrowed DESC;
+
+# Q8: Calculate fine for each returned borrow (₹10 per late day after 10 days).
+SELECT br.borrow_id, r.reader_name, b.book_title,
+       DATEDIFF(br.return_date, br.borrow_date) AS total_days,
+       CASE 
+         WHEN DATEDIFF(br.return_date, br.borrow_date) > 10
+         THEN (DATEDIFF(br.return_date, br.borrow_date) - 10) * 10
+         ELSE 0
+       END AS fine
+FROM BorrowRecords br
+JOIN Readers r ON br.reader_id = r.reader_id
+JOIN Books b ON br.book_id = b.book_id
+WHERE br.return_date IS NOT NULL;
+
+# Q9: Top 3 most borrowed books (by count).
+SELECT b.book_id, b.book_title, COUNT(br.borrow_id) AS borrow_count
+FROM Books b
+JOIN BorrowRecords br ON b.book_id = br.book_id
+GROUP BY b.book_id, b.book_title
+ORDER BY borrow_count DESC
+LIMIT 3;
+
+# Q10: List readers who currently have pending (not returned) books along with book titles.
+SELECT r.reader_id, r.reader_name, b.book_id, b.book_title, br.borrow_date
+FROM BorrowRecords br
+JOIN Readers r ON br.reader_id = r.reader_id
+JOIN Books b ON br.book_id = b.book_id
+WHERE br.return_date IS NULL
+ORDER BY br.borrow_date;
+
+# Q11: For each reader, show total number of books borrowed (returned + pending).
+SELECT r.reader_id, r.reader_name, COUNT(br.borrow_id) AS total_borrowed
+FROM Readers r
+LEFT JOIN BorrowRecords br ON r.reader_id = br.reader_id
+GROUP BY r.reader_id, r.reader_name
+ORDER BY total_borrowed DESC;
+
+# Q12: List all books that are low in stock (quantity < 3).
+SELECT book_id, book_title, quantity
+FROM Books
+WHERE quantity < 3
+ORDER BY quantity ASC;
+
+# Q13: Show most recent borrow records (latest first), include reader name and book title.
+SELECT br.borrow_id, r.reader_name, b.book_title, br.borrow_date, br.return_date
+FROM BorrowRecords br
+JOIN Readers r ON br.reader_id = r.reader_id
+JOIN Books b ON br.book_id = b.book_id
+ORDER BY br.borrow_date DESC;
+
+# Q14: Display the total number of copies of all books combined (total stock).
+SELECT SUM(quantity) AS total_stock FROM Books;
+
+# Q15: Find books that have never been borrowed.
+SELECT b.book_id, b.book_title
+FROM Books b
+WHERE b.book_id NOT IN (SELECT DISTINCT book_id FROM BorrowRecords);
+
+# Q16: Number of books borrowed per genre (how many borrow events per genre).
+SELECT b.genre, COUNT(br.borrow_id) AS borrow_count
+FROM Books b
+LEFT JOIN BorrowRecords br ON b.book_id = br.book_id
+GROUP BY b.genre
+ORDER BY borrow_count DESC;
+
+# Q17: Find the reader who has borrowed the most books (top 1).
+SELECT r.reader_id, r.reader_name, COUNT(br.borrow_id) AS total_borrows
+FROM Readers r
+JOIN BorrowRecords br ON r.reader_id = br.reader_id
+GROUP BY r.reader_id, r.reader_name
+ORDER BY total_borrows DESC
+LIMIT 1;
+
+# Q18: Get the book with the highest available quantity.
+SELECT book_id, book_title, quantity
+FROM Books
+ORDER BY quantity DESC
+LIMIT 1; 
+
+# Q19: For currently borrowed books, show how many days each reader has kept the book so far (pending borrows).
+SELECT br.borrow_id, r.reader_name, b.book_title,
+       DATEDIFF(CURRENT_DATE, br.borrow_date) AS days_so_far
+FROM BorrowRecords br
+JOIN Readers r ON br.reader_id = r.reader_id
+JOIN Books b ON br.book_id = b.book_id
+WHERE br.return_date IS NULL;
+
+# Q20: Total fine collected so far (only from returned borrows).
+SELECT SUM(
+    CASE 
+      WHEN DATEDIFF(br.return_date, br.borrow_date) > 10
+      THEN (DATEDIFF(br.return_date, br.borrow_date) - 10) * 10
+      ELSE 0
+    END
+) AS total_fine_collected
+FROM BorrowRecords br
+WHERE br.return_date IS NOT NULL;
